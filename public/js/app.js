@@ -9,10 +9,22 @@ const PROTECTED_PATHS = [
   '/pages/visualizar-reservas.html'
 ];
 
+function normalizePath(pathname = window.location.pathname) {
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+function buildAppUrl(path) {
+  const base = new URL('./', window.location.href);
+  if (path.startsWith('/')) {
+    return new URL(path.replace(/^\/+/, ''), base).toString();
+  }
+  return new URL(path, window.location.href).toString();
+}
+
 const API = {
   async request(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(buildAppUrl(url), { ...options, headers });
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -36,20 +48,23 @@ function clearSession() {
 }
 
 function requireAuth() {
-  const currentPath = window.location.pathname;
+  const currentPath = normalizePath(window.location.pathname);
+  const isProtectedPage = PROTECTED_PATHS.some((protectedPath) => currentPath.endsWith(protectedPath));
+  const isLandingPage = currentPath === '/' || currentPath.endsWith('/index.html') || currentPath.endsWith('/PARKUNI2') || currentPath.endsWith('/public');
+  const isAuthPage = currentPath.endsWith('/pages/login.html') || currentPath.endsWith('/pages/register.html');
 
-  if (PROTECTED_PATHS.includes(currentPath) && !isLoggedIn()) {
-    window.location.href = '/pages/login.html';
+  if (isProtectedPage && !isLoggedIn()) {
+    window.location.href = buildAppUrl('./login.html');
     return false;
   }
 
-  if ((currentPath === '/' || currentPath === '/index.html') && isLoggedIn()) {
-    window.location.href = '/pages/menu.html';
+  if (isLandingPage && isLoggedIn()) {
+    window.location.href = buildAppUrl('./pages/menu.html');
     return false;
   }
 
-  if ((currentPath === '/pages/login.html' || currentPath === '/pages/register.html') && isLoggedIn()) {
-    window.location.href = '/pages/menu.html';
+  if (isAuthPage && isLoggedIn()) {
+    window.location.href = buildAppUrl('./pages/menu.html');
     return false;
   }
 
@@ -134,7 +149,7 @@ async function handleLogin(event) {
 
     setSession(payload.usuario);
     showAlert(result.message, 'success');
-    setTimeout(() => window.location.href = '/pages/menu.html', 700);
+    setTimeout(() => window.location.href = buildAppUrl('./menu.html'), 700);
   } catch (error) {
     showAlert(error.message, 'error');
   }
@@ -158,7 +173,7 @@ async function handleRegister(event) {
     });
 
     showAlert(result.message, 'success');
-    setTimeout(() => window.location.href = '/pages/login.html', 900);
+    setTimeout(() => window.location.href = buildAppUrl('./login.html'), 900);
   } catch (error) {
     showAlert(error.message, 'error');
   }
@@ -360,11 +375,7 @@ function initGeneralPages() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       clearSession();
-      window.location.href = '/pages/login.html';
-    });
-  }
-
-  const loginForm = document.getElementById('loginForm');
+      window.location.href = buildAppUrl('./login.html');
   if (loginForm) loginForm.addEventListener('submit', handleLogin);
 
   const registerForm = document.getElementById('registerForm');
